@@ -1,1 +1,315 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calculadora Mundo Cancel</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #f4f6f8;
+    color: #1a2332;
+    padding: 16px;
+    line-height: 1.5;
+  }
+  .container { max-width: 600px; margin: 0 auto; }
+  h1 {
+    font-size: 1.4rem;
+    color: #0d47a1;
+    margin-bottom: 4px;
+    text-align: center;
+  }
+  .subtitle {
+    text-align: center;
+    color: #607d8b;
+    font-size: 0.85rem;
+    margin-bottom: 20px;
+  }
+  .card {
+    background: white;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+  label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 6px;
+    font-size: 0.9rem;
+    color: #37474f;
+  }
+  select, input {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #cfd8dc;
+    border-radius: 8px;
+    font-size: 1rem;
+    margin-bottom: 12px;
+    background: #fafbfc;
+  }
+  input:focus, select:focus {
+    outline: none;
+    border-color: #0d47a1;
+    background: white;
+  }
+  .row { display: flex; gap: 10px; }
+  .row > div { flex: 1; }
+  button {
+    width: 100%;
+    padding: 14px;
+    background: #0d47a1;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:active { background: #0a3a82; }
+  .section-title {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #0d47a1;
+    margin: 16px 0 8px;
+    padding-bottom: 4px;
+    border-bottom: 2px solid #e3f2fd;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+  }
+  th {
+    background: #eceff1;
+    text-align: left;
+    padding: 8px 6px;
+    font-weight: 600;
+    color: #455a64;
+  }
+  td {
+    padding: 8px 6px;
+    border-bottom: 1px solid #eceff1;
+  }
+  tr:last-child td { border-bottom: none; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .total-row {
+    background: #e3f2fd;
+    font-weight: 700;
+  }
+  .empty {
+    text-align: center;
+    color: #90a4ae;
+    padding: 30px 10px;
+    font-style: italic;
+  }
+  .actions { display: flex; gap: 8px; margin-top: 12px; }
+  .btn-sec {
+    background: #eceff1;
+    color: #37474f;
+    flex: 1;
+  }
+  .btn-sec:active { background: #cfd8dc; }
+  @media print {
+    body { background: white; padding: 0; }
+    .card { box-shadow: none; }
+    button, .no-print { display: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🪟 Calculadora Mundo Cancel</h1>
+  <p class="subtitle">Despiece paramétrico de carpintería de aluminio</p>
+
+  <div class="card">
+    <label for="tipologia">Tipología</label>
+    <select id="tipologia">
+      <option value="ventana_corrediza_3">Ventana corrediza 3" con mosquitero</option>
+      <!-- Aquí agregaremos más tipologías después -->
+    </select>
+
+    <div class="row">
+      <div>
+        <label for="ancho">Ancho (A) en mm</label>
+        <input type="number" id="ancho" placeholder="Ej: 1500" min="100">
+      </div>
+      <div>
+        <label for="alto">Alto (H) en mm</label>
+        <input type="number" id="alto" placeholder="Ej: 1200" min="100">
+      </div>
+    </div>
+
+    <button onclick="calcular()">Calcular despiece</button>
+  </div>
+
+  <div id="resultado"></div>
+</div>
+
+<script>
+// ============================================================
+// BASE DE DATOS DE FÓRMULAS
+// Cada tipología tiene componentes con:
+//   - nombre, tipo (perfil/cristal/consumible)
+//   - cantidad (piezas fijas)
+//   - largo (mm) - puede usar A y/o H
+//   - alto  (mm) - solo cristales/revestimientos
+//   - unidad (mm / m / m2 / pz)
+// ============================================================
+const TIPOLOGIAS = {
+  ventana_corrediza_3: {
+    nombre: 'Ventana corrediza 3" con mosquitero',
+    componentes: [
+      // CONTRAMARCO (perfiles que van al muro)
+      { nombre: 'Riel 3"',                tipo: 'perfil',     cantidad: 1, largo: (A,H) => A,                 unidad: 'mm' },
+      { nombre: 'Jamba c/mosquitero 3"',  tipo: 'perfil',     cantidad: 1, largo: (A,H) => A,                 unidad: 'mm' },
+      { nombre: 'Adaptador mosquitero',   tipo: 'perfil',     cantidad: 1, largo: (A,H) => A,                 unidad: 'mm' },
+      { nombre: 'Jamba 3" vertical',      tipo: 'perfil',     cantidad: 2, largo: (A,H) => H - 26,            unidad: 'mm' },
+      { nombre: 'Zoclo 3"',               tipo: 'perfil',     cantidad: 2, largo: (A,H) => (A - 185) / 2,     unidad: 'mm' },
+      { nombre: 'Cabezal 3"',             tipo: 'perfil',     cantidad: 2, largo: (A,H) => (A - 185) / 2,     unidad: 'mm' },
+
+      // HOJAS / MARCOS INTERNOS
+      { nombre: 'Cerco chapa 3" fijo',    tipo: 'perfil',     cantidad: 1, largo: (A,H) => H - 30,            unidad: 'mm' },
+      { nombre: 'Cerco chapa 3" corredizo', tipo: 'perfil',   cantidad: 1, largo: (A,H) => H - 40,            unidad: 'mm' },
+      { nombre: 'Traslape 3" fijo',       tipo: 'perfil',     cantidad: 1, largo: (A,H) => H - 30,            unidad: 'mm' },
+      { nombre: 'Traslape 3" corredizo',  tipo: 'perfil',     cantidad: 1, largo: (A,H) => H - 40,            unidad: 'mm' },
+
+      // MOSQUITERO
+      { nombre: 'Vertical mosquitero',    tipo: 'perfil',     cantidad: 2, largo: (A,H) => H - 20,            unidad: 'mm' },
+      { nombre: 'Horizontal mosquitero',  tipo: 'perfil',     cantidad: 2, largo: (A,H) => (A - 25) / 2,      unidad: 'mm' },
+
+      // CRISTALES
+      { nombre: 'Cristal fijo',           tipo: 'cristal',    cantidad: 1, largo: (A,H) => (A - 151) / 2, alto: (A,H) => H - 125, unidad: 'mm' },
+      { nombre: 'Cristal corredizo',      tipo: 'cristal',    cantidad: 1, largo: (A,H) => (A - 151) / 2, alto: (A,H) => H - 135, unidad: 'mm' },
+
+      // CONSUMIBLES (en metros lineales)
+      { nombre: 'Felpa',                  tipo: 'consumible', cantidad: 1, largo: (A,H) => ((A*4) + (H*8)) / 1000, unidad: 'm' },
+      { nombre: 'Vinil peine',            tipo: 'consumible', cantidad: 1, largo: (A,H) => ((A*2) + (H*4)) / 1000, unidad: 'm' },
+    ]
+  }
+};
+
+// ============================================================
+// FUNCIÓN PRINCIPAL DE CÁLCULO
+// ============================================================
+function calcular() {
+  const tipKey = document.getElementById('tipologia').value;
+  const A = parseFloat(document.getElementById('ancho').value);
+  const H = parseFloat(document.getElementById('alto').value);
+
+  if (!A || !H || A < 100 || H < 100) {
+    document.getElementById('resultado').innerHTML =
+      '<div class="card empty">⚠️ Ingresa medidas válidas (mínimo 100 mm)</div>';
+    return;
+  }
+
+  const tip = TIPOLOGIAS[tipKey];
+  const perfiles = [], cristales = [], consumibles = [];
+
+  tip.componentes.forEach(c => {
+    const largo = Math.max(0, c.largo(A, H));
+    const alto  = c.alto ? Math.max(0, c.alto(A, H)) : null;
+    const item = {
+      nombre: c.nombre,
+      cantidad: c.cantidad,
+      largo: largo,
+      alto: alto,
+      unidad: c.unidad,
+      total: c.cantidad * (alto !== null ? (largo * alto) : largo)
+    };
+    if (c.tipo === 'perfil')     perfiles.push(item);
+    if (c.tipo === 'cristal')    cristales.push(item);
+    if (c.tipo === 'consumible') consumibles.push(item);
+  });
+
+  renderizar(tip.nombre, A, H, perfiles, cristales, consumibles);
+}
+
+// ============================================================
+// RENDERIZADO DE RESULTADOS
+// ============================================================
+function renderizar(nombre, A, H, perfiles, cristales, consumibles) {
+  let html = `
+    <div class="card">
+      <div class="section-title">📐 Datos de entrada</div>
+      <table>
+        <tr><td><strong>Tipología</strong></td><td>${nombre}</td></tr>
+        <tr><td><strong>Ancho (A)</strong></td><td class="num">${A.toFixed(0)} mm</td></tr>
+        <tr><td><strong>Alto (H)</strong></td><td class="num">${H.toFixed(0)} mm</td></tr>
+      </table>
+    </div>
+  `;
+
+  if (perfiles.length) {
+    html += `<div class="card">
+      <div class="section-title">🔩 Perfiles de aluminio</div>
+      <table>
+        <thead><tr><th>Perfil</th><th class="num">Pzas</th><th class="num">Largo (mm)</th></tr></thead>
+        <tbody>`;
+    perfiles.forEach(p => {
+      html += `<tr>
+        <td>${p.nombre}</td>
+        <td class="num">${p.cantidad}</td>
+        <td class="num">${p.largo.toFixed(1)}</td>
+      </tr>`;
+    });
+    html += `</tbody></table></div>`;
+  }
+
+  if (cristales.length) {
+    html += `<div class="card">
+      <div class="section-title">🪟 Cristales / Vidrios</div>
+      <table>
+        <thead><tr><th>Vidrio</th><th class="num">Pzas</th><th class="num">Largo × Alto</th></tr></thead>
+        <tbody>`;
+    cristales.forEach(c => {
+      html += `<tr>
+        <td>${c.nombre}</td>
+        <td class="num">${c.cantidad}</td>
+        <td class="num">${c.largo.toFixed(1)} × ${c.alto.toFixed(1)}</td>
+      </tr>`;
+    });
+    html += `</tbody></table></div>`;
+  }
+
+  if (consumibles.length) {
+    html += `<div class="card">
+      <div class="section-title">📏 Consumibles</div>
+      <table>
+        <thead><tr><th>Material</th><th class="num">Cantidad</th></tr></thead>
+        <tbody>`;
+    consumibles.forEach(c => {
+      html += `<tr>
+        <td>${c.nombre}</td>
+        <td class="num">${c.largo.toFixed(2)} ${c.unidad}</td>
+      </tr>`;
+    });
+    html += `</tbody></table></div>`;
+  }
+
+  html += `
+    <div class="card no-print">
+      <div class="actions">
+        <button class="btn-sec" onclick="window.print()">🖨️ Imprimir</button>
+        <button class="btn-sec" onclick="limpiar()">🔄 Nueva medida</button>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('resultado').innerHTML = html;
+  window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+}
+
+function limpiar() {
+  document.getElementById('ancho').value = '';
+  document.getElementById('alto').value = '';
+  document.getElementById('resultado').innerHTML = '';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+</script>
+</body>
+</html>
+
 
